@@ -97,40 +97,15 @@ class Evolve(object):
     def offspring(self, prog_gen):
         """
         Generate offspring for a given generation / health
+
+        :param prog_gen: Program generation tuples (score, gene)
+        :return: List of new genes
         """
         next_gen = []
         next_gen += [prog_gen[0][1]]  # take best from last round
         while len(next_gen) < self.per_gen:
             w1 = utils.weighted_choice(prog_gen)
             w2 = utils.weighted_choice(prog_gen)
-            nw1, nw2 = self.crossover(w1, w2)
-            next_gen += gene.mutate(nw1, nw2)
+            next_gen += gene.mutate(self.trainer, w1, w2)
         return next_gen
 
-    def crossover(self, prog1, prog2):
-        """
-        Cross over two genes
-        """
-        valid = False
-        new1 = ''
-        new2 = ''
-        while not valid:
-            cut1 = random.randint(0, len(prog1))
-            cut2 = random.randint(0, len(prog2))
-            new1 = prog1[cut1:] + prog2[:cut2]
-            new2 = prog2[cut2:] + prog1[:cut1]
-            # if the genes aren't valid, retry
-            if not gene.validate(new1) and not gene.validate(new2):
-                continue
-
-            g1_out = gene.run(new1, self.trainer.gen_in())
-            fitness1 = self.trainer.check_fitness(g1_out)
-            g2_out = gene.run(new2, self.trainer.gen_in())
-            fitness2 = self.trainer.check_fitness(g2_out)
-
-            if fitness1 != float('inf') and fitness2 != float('inf'):
-                valid = True
-            else:
-                continue
-
-        return [new1, new2]

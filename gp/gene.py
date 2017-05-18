@@ -28,9 +28,9 @@ def run(code, input_stack, max_iter=100000):
             pptr += 1
 
         elif code[pptr] == '<':
-            dptr -= 1
             try:
-                data[dptr]
+                data[dptr - 1]
+                dptr -= 1
             except IndexError:
                 data.insert(0, 0)
             pptr += 1
@@ -135,7 +135,7 @@ def validate(code):
     return True
 
 
-def mutate(code1, code2):
+def mutate(trainer, code1, code2):
     """
     Mutate a given Brainfuck program in various ways
     :param code1: String, the subject program to mutate
@@ -143,28 +143,83 @@ def mutate(code1, code2):
     :return: String, a mutated brainfuck program
     """
     MUTATION_ODDS = 0.03
-    # Delete a section of the program
     def deletion(code):
+        """
+        Delete a section of the program
+
+        :param code: Code to delete a segment of
+        :return: Mutated code
+        """
         return code
 
-    # Duplicate a section of the program
     def duplication(code):
+        """
+        Duplicate a section of the program
+
+        :param code: Code to duplicate a segment of
+        :return: Mutated code
+        """
         return code
 
-    # Invert a section of the program (e.g. abcdef -> abEDCf)
     def inversion(code):
+        """
+        Invert a section of the program
+        For example, abcdef -> aDCBef
+
+        :param code: Code to invert a portion of
+        :return: Mutated code
+        """
         return code
 
-    # Swap out code for it's complement (e.g. +/-, [/], >/<, ,/.)
     def complementation(code):
+        """
+        Swap out code for it's complement
+        Ex. +/-, [/], >/<, ,/.
+
+        :param code: Code to complement a portion of
+        :return: Mutated code
+        """
         return code
 
-    # Delete a section of program one and insert it into program two
     def insertion(code1, code2):
+        """
+        Delete a section of program one and insert it into program two
+        :param code1: "Donor" segment of code
+        :param code2: "Receiver" segment of code
+        :return: Mutated donor and receiver code
+        """
         return code1, code2
 
-    # Swap sections of program one and program 2
     def translocation(code1, code2):
+        """
+        Swap segments of code1 with code2
+
+        :param code1: First segment of code
+        :param code2: Second segment of code
+        :return: Both mutated segments of code
+        """
+        valid = False
+        new1 = ''
+        new2 = ''
+        while not valid:
+            cut1 = random.randint(0, len(code1))
+            cut2 = random.randint(0, len(code2))
+            new1 = code1[cut1:] + code2[:cut2]
+            new2 = code2[cut2:] + code1[:cut1]
+            # if the genes aren't valid, retry
+            if not validate(new1) and not validate(new2):
+                continue
+
+            g1_out = run(new1, trainer.gen_in())
+            fitness1 = trainer.check_fitness(g1_out)
+            g2_out = run(new2, trainer.gen_in())
+            fitness2 = trainer.check_fitness(g2_out)
+
+            if fitness1 != float('inf') and fitness2 != float('inf'):
+                valid = True
+            else:
+                continue
+
         return code1, code2
 
     # TODO: Call the above mutations in varying amounts
