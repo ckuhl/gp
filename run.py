@@ -4,6 +4,7 @@ import gp.evolve
 import gp.trainer
 
 if __name__ == '__main__':
+    print('Starting...')
     try:
         simulation = gp.evolve.Evolve(gp.trainer.Hello, per_gen=16)
         simulation.generate_solution()
