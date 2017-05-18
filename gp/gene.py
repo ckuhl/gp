@@ -150,7 +150,30 @@ def mutate(trainer, code1, code2):
         :param code: Code to delete a segment of
         :return: Mutated code
         """
-        return code
+        valid = False
+        new_code = ''
+
+        while not valid:
+            average_mutation = MUTATION_ODDS * len(code)
+            X = random.gauss(average_mutation, average_mutation / 3)
+            x = int(abs(X))
+            pos = random.randint(0, len(code))
+
+            new_code = code[:pos] + code[pos + x:]
+
+            if not validate(new_code):
+                continue
+
+            g = run(new_code, trainer.gen_in())
+            fitness = trainer.check_fitness(g)
+
+            if fitness != float('inf'):
+                valid = True
+            else:
+                continue
+
+        return new_code
+
 
     def duplication(code):
         """
@@ -159,7 +182,32 @@ def mutate(trainer, code1, code2):
         :param code: Code to duplicate a segment of
         :return: Mutated code
         """
-        return code
+        valid = False
+        new_code = ''
+        while not valid:
+            average_mutation = MUTATION_ODDS * len(code)
+            X = random.gauss(average_mutation, average_mutation  * 2)
+            x = int(abs(X))
+            pos = random.randint(0, len(code))
+
+            if pos + x  > len(code):
+                continue
+
+            new_code = code[:pos + x] + code[pos:pos + x] + code[pos + x:]
+
+            if not validate(new_code):
+                continue
+
+            g = run(new_code, trainer.gen_in())
+            fitness = trainer.check_fitness(g)
+
+            if fitness != float('inf'):
+                valid = True
+            else:
+                continue
+
+        return new_code
+
 
     def inversion(code):
         """
@@ -220,7 +268,12 @@ def mutate(trainer, code1, code2):
             else:
                 continue
 
-        return code1, code2
+        return new1, new2
 
     # TODO: Call the above mutations in varying amounts
-    return translocation(code1, code2)
+    if bool(random.getrandbits(1)):
+        output = translocation(code1, code2)
+    else:
+        output = (deletion(code1), duplication(code2))
+
+    return output
