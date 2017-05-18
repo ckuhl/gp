@@ -142,29 +142,30 @@ def mutate(code1, code2):
     :param code2: String, the donor program to mutate
     :return: String, a mutated brainfuck program
     """
+    MUTATION_ODDS = 0.03
     # Delete a section of the program
     def deletion(code):
-        pass
+        return code
 
     # Duplicate a section of the program
     def duplication(code):
-        pass
+        return code
 
     # Invert a section of the program (e.g. abcdef -> abEDCf)
     def inversion(code):
-        pass
+        return code
 
     # Swap out code for it's complement (e.g. +/-, [/], >/<, ,/.)
     def complementation(code):
-        pass
+        return code
 
     # Delete a section of program one and insert it into program two
     def insertion(code1, code2):
-        pass
+        return code1, code2
 
     # Swap sections of program one and program 2
     def translocation(code1, code2):
-        pass
+        return code1, code2
 
     # TODO: Call the above mutations in varying amounts
     return translocation(code1, code2)

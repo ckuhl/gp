@@ -103,7 +103,8 @@ class Evolve(object):
         while len(next_gen) < self.per_gen:
             w1 = utils.weighted_choice(prog_gen)
             w2 = utils.weighted_choice(prog_gen)
-            next_gen += self.crossover(w1, w2)
+            nw1, nw2 = self.crossover(w1, w2)
+            next_gen += gene.mutate(nw1, nw2)
         return next_gen
 
     def crossover(self, prog1, prog2):
