@@ -1,5 +1,9 @@
 import random
+import time
+
 from termcolor import cprint
+
+import utils
 
 
 def run(code, input_stack, max_iter=100000):
@@ -68,7 +72,6 @@ def run(code, input_stack, max_iter=100000):
         step += 1
         if step > max_iter:
             return out
-
     return out
 
 
@@ -89,22 +92,40 @@ def loop_map(code):
     return bmap
 
 
-def gen(bounds):
+def gen(mu, sigma):
     """
     Generate a random Brainfuck program
 
-    :param bounds: (int, int) tuple containing min and max program length
+    :param mu: Average program length
+    :param sigma: Std. dev. of program length
     :return:  String containing a valid Brainfuck program
     """
-    code = ''
     valid = False
-    commands = ['>', '<', '+', '-', '.', ',', '[', ']']
+    cmds = [[1, '>', 0], [1, '<', 0],
+            [1, '+', 0], [1, '-', 0],
+            [1, '.', 0], [1, ',', 0],
+            [1, '[', 1], [0, ']', -1]]
 
     # Keep trying to make a string until we make one that works
     while not valid:
+        length = int(random.gauss(mu, sigma))
         code = ''
-        while len(code) < bounds[0] or len(code) > bounds[1]:
-            code += random.choice(commands)
+        depth = 0
+
+        # make a program to length
+        while length > 0:
+            c = utils.weighted_choice(cmds)
+            code += c[0]
+            depth += c[1]
+            cmds[7][0] = depth  # make it more likely to close the bracket
+            length -= 1
+
+        # pad out with brackets
+        while depth > 0:
+            code += ']'
+            depth -= 1
+
+        # double check
         valid = validate(code)
 
     return code
@@ -143,6 +164,22 @@ def mutate(trainer, code1, code2):
     :return: String, a mutated brainfuck program
     """
     MUTATION_ODDS = 0.03
+
+    def depth(code):
+        """
+        Depth (in number of `[` minus number of `]`) of code
+        :param code: String, code fragment to determine depth of
+        :return: Integer
+        """
+        d = 0
+        for i in code:
+            if i == '[':
+                d += 1
+            elif i == ']':
+                d -= 1
+        return d
+
+
     def deletion(code):
         """
         Delete a section of the program
@@ -252,21 +289,24 @@ def mutate(trainer, code1, code2):
         while not valid:
             cut1 = random.randint(0, len(code1))
             cut2 = random.randint(0, len(code2))
+
+            tmp = 0  # try finding nearby brackets to speed up code
+            d_needed = depth(code2[cut2:])
+            while depth(code1[cut1:]) != d_needed and tmp < 10:
+                cut1 += 1
+                tmp += 1
+
             new1 = code1[cut1:] + code2[:cut2]
             new2 = code2[cut2:] + code1[:cut1]
             # if the genes aren't valid, retry
-            if not validate(new1) and not validate(new2):
-                continue
+            if validate(new1) and validate(new2):
+                g1_out = run(new1, trainer.gen_in())
+                fitness1 = trainer.check_fitness(g1_out)
+                g2_out = run(new2, trainer.gen_in())
+                fitness2 = trainer.check_fitness(g2_out)
 
-            g1_out = run(new1, trainer.gen_in())
-            fitness1 = trainer.check_fitness(g1_out)
-            g2_out = run(new2, trainer.gen_in())
-            fitness2 = trainer.check_fitness(g2_out)
-
-            if fitness1 != float('inf') and fitness2 != float('inf'):
-                valid = True
-            else:
-                continue
+                if fitness1 != float('inf') and fitness2 != float('inf'):
+                    valid = True
 
         return new1, new2
 

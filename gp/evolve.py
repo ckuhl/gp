@@ -6,8 +6,8 @@ import random
 from termcolor import cprint
 
 # module code
-import gp.gene as gene  # brainfuck / "gene" simulation program
-import gp.utils as utils
+import gene
+import utils
 
 
 class Evolve(object):
@@ -54,7 +54,7 @@ class Evolve(object):
         prog_gen = []
         gen_round = 0
         while len(prog_gen) < self.per_gen:
-            g = gene.gen((random.randint(51, 500), random.randint(501, 1000)))
+            g = gene.gen(350, 75)
             g_out = gene.run(g, self.trainer.gen_in())
             fitness = self.trainer.check_fitness(g_out)
 
@@ -92,6 +92,7 @@ class Evolve(object):
             next_gen.append( (fitness, i) )
 
         next_gen.sort()
+        print(len(next_gen))
         return next_gen
 
     def offspring(self, prog_gen):
@@ -104,8 +105,8 @@ class Evolve(object):
         next_gen = []
         next_gen += [prog_gen[0][1]]  # take best from last round
         while len(next_gen) < self.per_gen:
-            w1 = utils.weighted_choice(prog_gen)
-            w2 = utils.weighted_choice(prog_gen)
+            w1 = utils.weighted_choice(prog_gen)[0]
+            w2 = utils.weighted_choice(prog_gen)[0]
             next_gen += gene.mutate(self.trainer, w1, w2)
         return next_gen
 

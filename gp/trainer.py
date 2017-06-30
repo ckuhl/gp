@@ -1,4 +1,4 @@
-import gp.quadratic as quadratic  # quadratic equation functions
+import quadratic
 from termcolor import cprint
 
 

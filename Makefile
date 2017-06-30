@@ -1,12 +1,14 @@
 BASE ?= $(shell pwd)
+
 TESTS=tests
 ENV=env
-PYTHON3=env/bin/python3
-PIP=env/bin/pip
 DOCS=docs
 PROJECT=gp
 
-EXEC=run.py
+PYTHON=env/bin/python3
+PIP=env/bin/pip
+EXEC=__main__.py
+
 
 .PHONY: clean docs run debug test setup init
 clean:
@@ -14,17 +16,17 @@ clean:
 
 docs:
 	test -d ${DOCS} || mkdir ${DOCS}
-	${PYTHON3} -m pydoc -w ./
+	${PYTHON} -m pydoc -w ./
 	mv *.html ${DOCS}
 
 run:
-	${PYTHON3} -O ${EXEC}
+	${PYTHON} -O ${PROJECT}/${EXEC}
 
 debug:
-	${PYTHON3} ${EXEC}
+	${PYTHON} ${PROJECT}/${EXEC}
 
 test:
-	${PYTHON3} -m unittest discover ${TESTS}
+	${PYTHON} -m unittest discover ${TESTS}
 
 setup:
 	test -d ${ENV} || virtualenv -p /usr/bin/python3 --no-site-packages ${ENV}

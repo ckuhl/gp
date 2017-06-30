@@ -59,16 +59,16 @@ def visualize_control_chars(s):
 def weighted_choice(tuple_list):
     """
     Makes a weighted selection from a list of tuples
-    :param tuple_list: List of tuples, of the form [(weight, item), ...]
-    :return:
+    :param tuple_list: List of n-tuples, of the form [(weight, ...), ...]
+    :return: Slice [1:] of randomly selected list element
     """
     total = sum([x[0] for x in tuple_list])
-    interval_tuples = [tuple((x[0] / total, x[1])) for x in tuple_list]
+    interval_tuples = [tuple((x[0] / total, n)) for n, x in enumerate(tuple_list)]
 
     choice = random.random()
     choice -= interval_tuples[0][0]
     while choice > 0:
         interval_tuples = interval_tuples[1:]
         choice -= interval_tuples[0][0]
-    return interval_tuples[0][1]
+    return tuple_list[interval_tuples[0][1]][1:]
 
