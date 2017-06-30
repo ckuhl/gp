@@ -317,3 +317,4 @@ def mutate(trainer, code1, code2):
         output = (deletion(code1), duplication(code2))
 
     return output
+
