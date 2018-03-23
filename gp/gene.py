@@ -106,54 +106,52 @@ def gen(mu, sigma):
             [1, '.', 0], [1, ',', 0],
             [1, '[', 1], [0, ']', -1]]
 
-    # Keep trying to make a string until we make one that works
-    while not valid:
-        length = int(random.gauss(mu, sigma))
-        code = ''
-        depth = 0
+    length = int(random.gauss(mu, sigma))
+    code = ''
+    depth = 0
 
-        # make a program to length
-        while length > 0:
-            c = utils.weighted_choice(cmds)
-            code += c[0]
-            depth += c[1]
-            cmds[7][0] = depth  # make it more likely to close the bracket
-            length -= 1
+    # make a program to length
+    while length > 0:
+        c = utils.weighted_choice(cmds)
+        code += c[0]
+        depth += c[1]
+        cmds[7][0] = depth  # make it more likely to close the bracket
+        length -= 1
 
-        # pad out with brackets
-        while depth > 0:
-            code += ']'
-            depth -= 1
-
-        # double check
-        valid = validate(code)
+    # pad out with brackets
+    while depth > 0:
+        code += ']'
+        depth -= 1
 
     return code
 
 
-def validate(code):
+def repair(code):
     """
-    Performs trivial validation on a Brainfuck program
+    "Repairs" broken codes by balancing brackets
 
-    :param code: String containing a valid Brainfuck program
-    :return:  Whether or not the below program is valid
+    :param code: String containing an invalid Brainfuck program
+    :return:  String containing a valid Brainfuck program
     """
-    # check for balanced brackets
-    lb, rb = code.count('['), code.count(']')
-    if lb != rb:
-        return False
+    stack = []
+    s = ''
 
-    # check for paired brackets
-    depth = 0
     for i in code:
         if i == '[':
-            depth += 1
+            stack.append(']')
+            s += i
         elif i == ']':
-            depth -= 1
-        if depth < 0:
-            return False
-
-    return True
+            # handle too many right brackets
+            try:
+                s += stack.pop()
+            except IndexError:
+                pass
+        else:
+            s += i
+    # handle too many left brackets
+    for i in stack:
+        s += i
+    return s
 
 
 def mutate(trainer, code1, code2):
@@ -196,10 +194,7 @@ def mutate(trainer, code1, code2):
             x = int(abs(X))
             pos = random.randint(0, len(code))
 
-            new_code = code[:pos] + code[pos + x:]
-
-            if not validate(new_code):
-                continue
+            new_code = repair(code[:pos] + code[pos + x:])
 
             g = run(new_code, trainer.gen_in())
             fitness = trainer.check_fitness(g)
@@ -230,10 +225,7 @@ def mutate(trainer, code1, code2):
             if pos + x  > len(code):
                 continue
 
-            new_code = code[:pos + x] + code[pos:pos + x] + code[pos + x:]
-
-            if not validate(new_code):
-                continue
+            new_code = repair(code[:pos + x] + code[pos:pos + x] + code[pos + x:])
 
             g = run(new_code, trainer.gen_in())
             fitness = trainer.check_fitness(g)
@@ -254,6 +246,7 @@ def mutate(trainer, code1, code2):
         :param code: Code to invert a portion of
         :return: Mutated code
         """
+        # TODO
         return code
 
     def complementation(code):
@@ -264,6 +257,7 @@ def mutate(trainer, code1, code2):
         :param code: Code to complement a portion of
         :return: Mutated code
         """
+        # TODO
         return code
 
     def insertion(code1, code2):
@@ -273,6 +267,7 @@ def mutate(trainer, code1, code2):
         :param code2: "Receiver" segment of code
         :return: Mutated donor and receiver code
         """
+        # TODO
         return code1, code2
 
     def translocation(code1, code2):
@@ -296,17 +291,16 @@ def mutate(trainer, code1, code2):
                 cut1 += 1
                 tmp += 1
 
-            new1 = code1[cut1:] + code2[:cut2]
-            new2 = code2[cut2:] + code1[:cut1]
-            # if the genes aren't valid, retry
-            if validate(new1) and validate(new2):
-                g1_out = run(new1, trainer.gen_in())
-                fitness1 = trainer.check_fitness(g1_out)
-                g2_out = run(new2, trainer.gen_in())
-                fitness2 = trainer.check_fitness(g2_out)
+            new1 = repair(code1[cut1:] + code2[:cut2])
+            new2 = repair(code2[cut2:] + code1[:cut1])
 
-                if fitness1 != float('inf') and fitness2 != float('inf'):
-                    valid = True
+            g1_out = run(new1, trainer.gen_in())
+            fitness1 = trainer.check_fitness(g1_out)
+            g2_out = run(new2, trainer.gen_in())
+            fitness2 = trainer.check_fitness(g2_out)
+
+            if fitness1 != float('inf') and fitness2 != float('inf'):
+                valid = True
 
         return new1, new2
 

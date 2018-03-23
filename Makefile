@@ -29,7 +29,7 @@ test:
 	${PYTHON} -m unittest discover ${TESTS}
 
 setup:
-	test -d ${ENV} || virtualenv -p /usr/bin/python3 --no-site-packages ${ENV}
+	test -d ${ENV} || virtualenv -p python3 --no-site-packages ${ENV}
 	${PIP} install -r requirements.txt
 	${PIP} install --upgrade pip
 	${PIP} install --upgrade setuptools
