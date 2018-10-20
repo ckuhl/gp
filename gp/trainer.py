@@ -1,98 +1,49 @@
-import quadratic
-from termcolor import cprint
+from typing import Tuple
 
 
-class Trainer(object):
+class Trainer:
     """
     A genetic program trainer provides a method by which to generate inputs,
       expected outputs, and a fitness calculator by which to train functions.
     """
+
     def __init__(self):
-        """
-        TODO
-        """
-        pass
+        """Configure the trainer"""
+        ...
 
-    def gen_in(self):
-        """
-        TODO
-        """
-        pass
+    def gen_in(self) -> str:
+        """Generate input for a program"""
+        ...
 
-    def gen_out(self):
-        """
-        TODO
-        """
-        pass
+    def gen_out(self) -> str:
+        """Generate the expected output given the above input"""
+        ...
 
-    def check_fitness(self, output):
+    def check_fitness(self, output: str) -> Tuple[int, float]:
         """
-        TODO
+        Given an output, generate a number between [0, +inf) that indicates the
+        fitness of a particular gene.
         """
-        pass
+        ...
 
-
-class Quadratic(Trainer):
-    """
-    A trainer to generate programs that factor a quadratic equation into it's
-      roots
-    """
-    def __init__(self):
-        self.root_set = quadratic.gen_root_set(-10, 10)
-        self.std_form = quadratic.gen_std_form(self.root_set)
-        self.f = quadratic.gen_quadratic_eqn(self.root_set)
-
-    def gen_in(self):
-        """
-        Generate a representation of a quadratic as 3 numbers "x y z"
-        """
-        return str(self.std_form[0]) + ' ' + str(self.std_form[1]) + ' ' + str(self.std_form[2])
-
-    def check_fitness(self, output):
-        """
-        Return the average of the two points' distance from the roots (i.e. 0)
-        """
-        try:
-            output_list = output.split()
-            p1, p2 = float(output_list[0]), float(output_list[1])
-        except ValueError:
-            if __debug__:
-                cprint('[ERROR]', 'red', sep='', end='\t')
-                print('ValueError on program output')
-            return float('inf')
-        except IndexError:
-            if __debug__:
-                cprint('[ERROR]', 'red', sep='', end='\t')
-                print('IndexError grabbing 2 values from program output')
-            try:
-                p1 = float(output_list[0])
-                return abs(self.f(p1) * 0.5)
-            except IndexError:
-                if __debug__:
-                    cprint('[ERROR]', 'red', sep='', end='\t')
-                    print('IndexError grabbing 1 value from program output')
-                return float('inf')
-
-        avg_dist = (self.f(p1) + self.f(p2)) / 2
-
-        # TODO: Normalize quadratic equation (eventually)
-        return abs(avg_dist)
 
 class Hello(Trainer):
-    """
-    A trainer to generate a program that outputs the string "Hello World!"
-    """
+    """A trainer to generate a program that what writes out `Hello World!`"""
+
     def __init__(self):
         """
-        TODO
+        TODO: Does Hello need anything set up?
         """
-        pass
+        super().__init__()
 
     def gen_in(self):
         """
-        TODO
+        TODO: Should any input be provided?
         """
         return ''
+
+    def gen_out(self):
+        return "Hello world!"
 
     def check_fitness(self, output):
         """
@@ -101,15 +52,11 @@ class Hello(Trainer):
         The distance between strings is calculated is the square of the
         difference between each ASCII character.
         """
-        hello_string = "Hello world!"
+        expected = self.gen_out()
         fitness = 0
-        for n, i in enumerate(hello_string):
+        for n, i in enumerate(expected):
             try:
                 fitness += abs(ord(i) - ord(output[n])) ** 2
             except IndexError:
-                #if __debug__:
-                #    cprint('[ERROR]', 'red', sep='', end='\t')
-                #    print('IndexError iterating through output')
                 return float('inf')
         return fitness
-

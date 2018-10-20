@@ -1,13 +1,12 @@
 BASE ?= $(shell pwd)
 
 TESTS=tests
-ENV=env
 DOCS=docs
 PROJECT=gp
 
-PYTHON=env/bin/python3
-PIP=env/bin/pip
-EXEC=__main__.py
+PYTHON=pipenv run python
+PIP=pipenv run python -m pip
+EXEC=main.py
 
 
 .PHONY: clean docs run debug test setup init
@@ -20,17 +19,15 @@ docs:
 	mv *.html ${DOCS}
 
 run:
-	${PYTHON} -O ${PROJECT}/${EXEC}
+	${PYTHON} -O ${EXEC}
 
 debug:
-	${PYTHON} ${PROJECT}/${EXEC}
+	${PYTHON} ${EXEC}
 
 test:
 	${PYTHON} -m unittest discover ${TESTS}
 
 setup:
 	test -d ${ENV} || virtualenv -p python3 --no-site-packages ${ENV}
-	${PIP} install -r requirements.txt
-	${PIP} install --upgrade pip
-	${PIP} install --upgrade setuptools
+	${PYTHON} -m pip install -r requirements.txt
 

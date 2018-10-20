@@ -1,30 +1,23 @@
-# builtins
 import datetime
-import random
+from typing import Any, List, Tuple
 
-# third party
 from termcolor import cprint
 
-# module code
-import gene
-import utils
+from . import gene, utils
 
 
 class Evolve(object):
     """
     Class to evolve a genetic program
     """
-    def __init__(self, prog_trainer, per_gen=25):
-        """
-        Set up the Evolve-r with the program trainer and number of genes
-        """
+
+    def __init__(self, prog_trainer, per_gen: int = 25):
+        """Set up the Evolve-r with the program trainer and number of genes"""
         self.trainer = prog_trainer()
         self.per_gen = per_gen
 
-    def generate_solution(self):
-        """
-        Create a genetic program that solves the defined problem
-        """
+    def generate_solution(self) -> str:
+        """Create a genetic program that solves the defined problem"""
         gen_num = 0
         gen_results = self.generation_zero()
         start = datetime.datetime.now()
@@ -36,26 +29,27 @@ class Evolve(object):
 
             if __debug__:
                 # logging
-                cprint('[Gen #' + str(gen_num) + ']', 'magenta', sep='', end='\t')
+                cprint('[Gen #' + str(gen_num) + ']', 'magenta', sep='',
+                       end='\t')
                 stop = datetime.datetime.now()
-                cprint('[' + str(stop - start)[:7] + ']', 'blue', sep='', end='\t')
+                cprint('[' + str(stop - start)[:7] + ']', 'blue', sep='',
+                       end='\t')
                 print('Best fitness:', gen_results[0][0], sep='', end='\t')
-                print(utils.visualize_control_chars(gene.run(gen_results[0][1], '')[:len('Hello world!')]))
+                print(utils.visualize_control_chars(
+                    gene.Gene.run(gen_results[0][1], '')[:len('Hello world!')]))
                 if gen_results[0][1] != prev_soln:
                     prev_soln = gen_results[0][1]
                     print(prev_soln)
 
         return gen_results[0][1]
 
-    def generation_zero(self):
-        """
-        Generate the seed generation to iterate on
-        """
-        prog_gen = []
+    def generation_zero(self) -> List[Tuple[Any, str]]:
+        """Generate the seed generation to iterate on"""
+        program_generation = []
         gen_round = 0
-        while len(prog_gen) < self.per_gen:
-            g = gene.gen(350, 75)
-            g_out = gene.run(g, self.trainer.gen_in())
+        while len(program_generation) < self.per_gen:
+            g = gene.Gene.gen(350, 75)
+            g_out = gene.Gene.run(g, self.trainer.gen_in())
             fitness = self.trainer.check_fitness(g_out)
 
             gen_round += 1
@@ -70,16 +64,18 @@ class Evolve(object):
                         tmp_g = tmp_g[79:]
 
                     cprint('[INFO]', 'green', sep='', end='\t')
-                    print('Number:', len(prog_gen) + 1, 'Round:', gen_round + 1, sep='\t', end='\t')
+                    print('Number:', len(program_generation) + 1,
+                          'Round:', gen_round + 1,
+                          sep='\t', end='\t')
                     print('Fit:', fitness, sep='\t', end='\n')
                     print(utils.visualize_control_chars(g_out[:79]))
 
-                prog_gen.append( (fitness, g) )
+                program_generation.append((fitness, g))
 
-        prog_gen.sort()
-        return prog_gen
+        program_generation.sort()
+        return program_generation
 
-    def generation_n(self, gene_list):
+    def generation_n(self, gene_list: List[str]) -> List[Tuple[Any, str]]:
         """
         Iterate over a set of generated programs for a fitness function.
         :return: A list of program-fitness tuples
@@ -87,15 +83,14 @@ class Evolve(object):
         next_gen = []
 
         for i in gene_list:
-            g_out = gene.run(i, self.trainer.gen_in())
+            g_out = gene.Gene.run(i, self.trainer.gen_in())
             fitness = self.trainer.check_fitness(g_out)
-            next_gen.append( (fitness, i) )
+            next_gen.append((fitness, i))
 
         next_gen.sort()
-        print(len(next_gen))
         return next_gen
 
-    def offspring(self, prog_gen):
+    def offspring(self, prog_gen: List[Tuple[Any, str]]) -> List[str]:
         """
         Generate offspring for a given generation / health
 
@@ -107,6 +102,7 @@ class Evolve(object):
         while len(next_gen) < self.per_gen:
             w1 = utils.weighted_choice(prog_gen)[0]
             w2 = utils.weighted_choice(prog_gen)[0]
-            next_gen += gene.mutate(self.trainer, w1, w2)
-        return next_gen
 
+            # Shim while moving over to Gene objects
+            next_gen += gene.Gene.mutate(gene.Gene(self.trainer, ''), w1, w2)
+        return next_gen

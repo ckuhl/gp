@@ -1,7 +1,6 @@
 import logging
 
-import evolve
-import trainer
+from gp import evolve, trainer
 
 
 if __name__ == '__main__':
@@ -13,5 +12,4 @@ if __name__ == '__main__':
         simulation.generate_solution()
     except KeyboardInterrupt:
         if __debug__:
-            log.warn('Keyboard interrupt received')
-
+            log.critical('Keyboard interrupt received')
