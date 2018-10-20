@@ -1,9 +1,13 @@
 import datetime
+import logging
 from typing import List
 
-from termcolor import cprint
+import termcolor
 
 from . import gene, utils
+
+
+log = logging.getLogger(__name__)
 
 
 class Evolve(object):
@@ -22,24 +26,25 @@ class Evolve(object):
         gen_results = self.generation_zero()
         start = datetime.datetime.now()
         prev_soln = ''
-        while gen_results[0][0] != 0:
+        while gen_results[0].fitness != 0:
             gen_num += 1
             gen_next = self.offspring(gen_results)
             gen_results = self.generation_n(gen_next)
 
-            if __debug__:
-                # logging
-                cprint('[Gen #' + str(gen_num) + ']', 'magenta', sep='',
-                       end='\t')
-                stop = datetime.datetime.now()
-                cprint('[' + str(stop - start)[:7] + ']', 'blue', sep='',
-                       end='\t')
-                print('Best fitness:', gen_results[0][0], sep='', end='\t')
-                print(utils.visualize_control_chars(
-                    gene.Gene.run(gen_results[0][1], '')[:len('Hello world!')]))
-                if gen_results[0][1] != prev_soln:
-                    prev_soln = gen_results[0][1]
-                    print(prev_soln)
+            # Logging
+            log.debug(
+                termcolor.colored('[Gen #{}]\t'.format(gen_num),
+                                  color='magenta'))
+            stop = datetime.datetime.now()
+            log.debug(
+                termcolor.colored('[{}]\t'.format(str(stop - start)[:7]),
+                                  color='blue'))
+            log.debug('Best fitness: %s\t', gen_results[0].fitness)
+            log.debug(utils.visualize_control_chars(
+                gen_results[0].output[:len('Hello world!')]))
+            if gen_results[0].gene != prev_soln:
+                prev_soln = gen_results[0].gene
+                log.debug(prev_soln)
 
         return gen_results[0][1]
 
@@ -53,23 +58,26 @@ class Evolve(object):
 
             gen_round += 1
             if fitness != float('inf'):
-                if __debug__:
-                    print('=' * 79)
+                log.debug('=' * 79)
 
-                    # loop through code to print it nicely
-                    tmp_g = g.gene
-                    while tmp_g:
-                        print(tmp_g[:79])
-                        tmp_g = tmp_g[79:]
+                # loop through code to print it nicely
+                tmp_g = g.gene
+                while tmp_g:
+                    log.debug(tmp_g[:79])
+                    tmp_g = tmp_g[79:]
 
-                    cprint('[INFO]', 'green', sep='', end='\t')
-                    print('Number:', len(program_generation) + 1,
-                          'Round:', gen_round + 1,
-                          sep='\t', end='\t')
-                    print('Fit:', fitness, sep='\t', end='\n')
-                    print(utils.visualize_control_chars(g[:79]))
+                log.debug(
+                    termcolor.colored(
+                        'Number:\t{}\t'
+                        'Round:\t{}\t'
+                        'Fit:\t{}\n'.format(
+                            len(program_generation) + 1,
+                            gen_round + 1,
+                            fitness),
+                        color='green'))
+                log.debug(utils.visualize_control_chars(g[:79]))
 
-                program_generation.append(g)
+            program_generation.append(g)
 
         program_generation.sort(key=lambda x: x.fitness)
         return program_generation

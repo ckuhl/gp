@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import random
 from functools import lru_cache
-from typing import Dict, Tuple, Union
+from typing import Tuple, Union
 
+from gp.brainfuck_machine import BrainfuckMachine
 from gp.trainer import Trainer
 from . import utils
 
@@ -13,10 +14,13 @@ log = logging.getLogger(__name__)
 
 
 class Gene(object):
+    """Representation of a `Gene` and all the relevant data surrounding it"""
+
     def __init__(self,
                  trainer: Trainer,
                  gene: str) -> None:
-        self._trainer = trainer
+        """Load data we need"""
+        self.__trainer = trainer
         self.gene = gene
 
     def __iter__(self):
@@ -44,99 +48,20 @@ class Gene(object):
     @lru_cache(maxsize=1)
     def fitness(self) -> Union[int, float]:
         """The fitness of the particular gene as a property, cached"""
-        return self._trainer.check_fitness(self.run(self.gene,
-                                                    self._trainer.gen_in()))
+        return self.__trainer.check_fitness(self.output)
 
-    @staticmethod
-    def run(code: str,
-            input_stack: str,
-            max_iter: int = 100_000) -> str:
+    @property
+    @lru_cache(maxsize=10)
+    def output(self, max_iter: int = 100_000) -> str:
         """
-        Run a Brainfuck program with a given input "stack" (i.e. string)
+        The output of running the gene with a particular input
 
-        :param code: Valid Brainfuck program
-        :param input_stack: Input for the program
         :param max_iter: Maximum iterations the can program
         :return: What the program wrote to output
         """
-        dptr, pptr = 0, 0  # set the program pointer and ata pointer
-        data, stack = [0], []  # data tape, and call stack
-        out = ''  # output string
-        step = 0  # step of iteration
-        jmp_map = Gene.loop_map(code)
-        code_len = len(code)
-
-        while pptr < code_len:
-            if code[pptr] == '>':
-                dptr += 1
-                try:
-                    data[dptr]
-                except IndexError:  # accessing beyond tape end; extend tape
-                    data.append(0)
-                pptr += 1
-
-            elif code[pptr] == '<':
-                try:
-                    # test if we are at the start of the list
-                    data[dptr - 1]
-                    dptr -= 1
-                except IndexError:
-                    # if we are, extend the list instead of moving the pointer
-                    data.insert(0, 0)
-                pptr += 1
-
-            elif code[pptr] == '+':
-                data[dptr] += 1
-                pptr += 1
-
-            elif code[pptr] == '-':
-                data[dptr] -= 1
-                pptr += 1
-
-            elif code[pptr] == '.':
-                if data[dptr] >= 0:
-                    out += chr(data[dptr])
-                pptr += 1
-
-            elif code[pptr] == ',':
-                if input_stack:
-                    data[dptr] = ord(input_stack[0])
-                    input_stack = input_stack[1:]
-                pptr += 1
-
-            elif code[pptr] == '[':
-                if data[dptr]:
-                    pptr += 1
-                else:
-                    pptr = jmp_map[pptr]
-
-            elif code[pptr] == ']':
-                if data[dptr]:
-                    pptr = jmp_map[pptr]
-                else:
-                    pptr += 1
-            step += 1
-            if step > max_iter:
-                log.info('Max iteration hit, returning early')
-                return out
-        return out
-
-    @staticmethod
-    def loop_map(code: str) -> Dict[int, int]:
-        """
-        Build a map of matching brackets, forwards and backwards
-
-        :param code: String containing a valid Brainfuck program
-        :return: Dictionary containing location of every bracket's match
-        """
-        stack, bmap = [], {}
-        for n, c in enumerate(code):
-            if c == '[':
-                stack.append(n)
-            elif c == ']':
-                bmap[n] = stack.pop()  # back ref i.e. pos(']'): pos('[')
-                bmap[bmap[n]] = n  # forward ref i.e pos('['): pos(']')
-        return bmap
+        return BrainfuckMachine(self.gene,
+                                self.__trainer.gen_in(),
+                                max_iter).run()
 
     @staticmethod
     def gen(mu: float, sigma: float) -> str:
@@ -207,7 +132,7 @@ class Gene(object):
 
     def mutate(self,
                g1: Gene,
-               g2: Gene) -> Tuple[str, str]:
+               g2: Gene) -> Tuple[Gene, Gene]:
         """
         Mutate a given Brainfuck program in various ways
         :param g1: the subject program to mutate
@@ -230,44 +155,36 @@ class Gene(object):
                     d -= 1
             return d
 
-        def deletion(code: Gene) -> str:
+        def deletion(code: Gene) -> Gene:
             """
             Delete a section of the program
 
             :param code: Code to delete a segment of
             :return: Mutated code
             """
-            valid = False
-            new_code = ''
-
-            while not valid:
+            while True:
                 average_mutation = MUTATION_ODDS * len(code)
                 X = random.gauss(average_mutation, average_mutation / 3)
                 x = int(abs(X))
                 pos = random.randint(0, len(code))
 
-                new_code = Gene.repair(code[:pos] + code[pos + x:])
+                deleted = Gene.repair(code[:pos] + code[pos + x:])
 
-                g = Gene.run(new_code, self._trainer.gen_in())
-                fitness = self._trainer.check_fitness(g)
+                g = Gene(self.__trainer, deleted)
 
-                if fitness != float('inf'):
-                    valid = True
-                else:
-                    continue
+                if g.fitness != float('inf'):
+                    break
 
-            return new_code
+            return g
 
-        def duplication(code: Gene) -> str:
+        def duplication(code: Gene) -> Gene:
             """
             Duplicate a section of the program
 
             :param code: Code to duplicate a segment of
             :return: Mutated code
             """
-            valid = False
-            new_code = ''
-            while not valid:
+            while True:
                 average_mutation = MUTATION_ODDS * len(code)
                 X = random.gauss(average_mutation, average_mutation * 2)
                 x = int(abs(X))
@@ -276,20 +193,18 @@ class Gene(object):
                 if pos + x > len(code):
                     continue
 
-                new_code = Gene.repair(
-                    code[:pos + x] + code[pos:pos + x] + code[pos + x:])
+                duplicated = Gene.repair(code[:pos + x]
+                                         + code[pos:pos + x]
+                                         + code[pos + x:])
 
-                g = Gene.run(new_code, self._trainer.gen_in())
-                fitness = self._trainer.check_fitness(g)
+                new_code = Gene(self.__trainer, duplicated)
 
-                if fitness != float('inf'):
-                    valid = True
-                else:
-                    continue
+                if new_code.fitness != float('inf'):
+                    break
 
             return new_code
 
-        def inversion(code: Gene) -> str:
+        def inversion(code: Gene) -> Gene:
             """
             Invert a section of the program
             For example, abcdef -> aDCBef
@@ -299,7 +214,7 @@ class Gene(object):
             """
             raise NotImplementedError
 
-        def complementation(code: Gene) -> str:
+        def complementation(code: Gene) -> Gene:
             """
             Swap out code for it's complement
             Ex. +/-, [/], >/<, ,/.
@@ -309,7 +224,7 @@ class Gene(object):
             """
             raise NotImplementedError
 
-        def insertion(code1: Gene, code2: Gene) -> Tuple[str, str]:
+        def insertion(code1: Gene, code2: Gene) -> Tuple[Gene, Gene]:
             """
             Delete a section of program one and insert it into program two
             :param code1: "Donor" segment of code
@@ -318,7 +233,7 @@ class Gene(object):
             """
             raise NotImplementedError
 
-        def translocation(code1: Gene, code2: Gene) -> Tuple[str, str]:
+        def translocation(code1: Gene, code2: Gene) -> Tuple[Gene, Gene]:
             """
             Swap segments of code1 with code2
 
@@ -326,10 +241,7 @@ class Gene(object):
             :param code2: Second segment of code
             :return: Both mutated segments of code
             """
-            valid = False
-            new1 = ''
-            new2 = ''
-            while not valid:
+            while True:
                 cut1 = random.randint(0, len(code1))
                 cut2 = random.randint(0, len(code2))
 
@@ -339,24 +251,19 @@ class Gene(object):
                     cut1 += 1
                     tmp += 1
 
-                new1 = Gene.repair(code1[cut1:] + code2[:cut2])
-                new2 = Gene.repair(code2[cut2:] + code1[:cut1])
+                g1_out = Gene(self.__trainer,
+                              Gene.repair(code1[cut1:] + code2[:cut2]))
+                g2_out = Gene(self.__trainer,
+                              Gene.repair(code2[cut2:] + code1[:cut1]))
 
-                g1_out = Gene.run(new1, self._trainer.gen_in())
-                g2_out = Gene.run(new2, self._trainer.gen_in())
-
-                fitness1 = self._trainer.check_fitness(g1_out)
-                fitness2 = self._trainer.check_fitness(g2_out)
-
-                if fitness1 != float('inf') and fitness2 != float('inf'):
+                if g1_out.fitness != float('inf') and \
+                        g2_out.fitness != float('inf'):
                     break
 
-            return new1, new2
+            return g1_out, g2_out
 
         # TODO: Call the above mutations in varying amounts
         if random.getrandbits(1):
-            output = translocation(g1, g2)
+            return translocation(g1, g2)
         else:
-            output = (deletion(g1), duplication(g2))
-
-        return output
+            return deletion(g1), duplication(g2)

@@ -19,6 +19,16 @@ watch it start churning away at an example problem.
 `python -m cProfile -s tottime gp/__main__.py` profile, sorted by total time
 in each function.
 
+To profile a specific function:
+```python
+import pprofile
+profiler = pprofile.Profile()
+with profiler:
+    ...
+```
+and then start it from the command line as such: 
+`pprofile --threads 0 main.py`
+
 ## To do
 - [ ] change gene.run into a generator
   - i.e. terminate as soon as sufficient output is generated
