@@ -1,5 +1,5 @@
 import random
-from typing import Any, Sequence
+from typing import Callable, Sequence, TypeVar, Union
 
 
 def visualize_control_chars(s: str) -> str:
@@ -58,20 +58,25 @@ def visualize_control_chars(s: str) -> str:
     return rs
 
 
-# TODO: Further constrain types?
-def weighted_choice(tuple_list: Sequence[Sequence[Any]]) -> Any:
+# Type variable to constrain our weighted choice functions
+X = TypeVar('X')
+
+
+def weighted_choice(object_list: Sequence[X],
+                    key: Callable[[X], Union[int, float]]) -> X:
     """
-    Makes a weighted selection from a list of tuples
-    :param tuple_list: List of n-tuples, of the form [(weight, ...), ...]
-    :return: Slice [1:] of randomly selected list element
+    Makes a weighted selection from a list of weighted objects
+    :param object_list: list of any type of object that can be weighted
+    :param key: function to extract keyvalue from a list
+    :return: The selected list element
     """
-    total = sum([x[0] for x in tuple_list])
-    interval_tuples = [tuple((x[0] / total, n)) for n, x in
-                       enumerate(tuple_list)]
+    total = sum([key(x) for x in object_list])
+    interval_tuples = [tuple((key(x) / total, n)) for n, x in
+                       enumerate(object_list)]
 
     choice = random.random()
     choice -= interval_tuples[0][0]
     while choice > 0:
         interval_tuples = interval_tuples[1:]
         choice -= interval_tuples[0][0]
-    return tuple_list[interval_tuples[0][1]][1:]
+    return object_list[interval_tuples[0][1]]

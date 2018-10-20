@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Union
 
 
 class Trainer:
@@ -19,7 +19,7 @@ class Trainer:
         """Generate the expected output given the above input"""
         ...
 
-    def check_fitness(self, output: str) -> Tuple[int, float]:
+    def check_fitness(self, output: str) -> Union[int, float]:
         """
         Given an output, generate a number between [0, +inf) that indicates the
         fitness of a particular gene.

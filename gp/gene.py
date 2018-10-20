@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import random
-from typing import Dict, Tuple
+from functools import lru_cache
+from typing import Dict, Tuple, Union
 
 from gp.trainer import Trainer
 from . import utils
@@ -12,9 +15,37 @@ log = logging.getLogger(__name__)
 class Gene(object):
     def __init__(self,
                  trainer: Trainer,
-                 gene: str):
+                 gene: str) -> None:
         self._trainer = trainer
         self.gene = gene
+
+    def __iter__(self):
+        """Allow iterating through the gene string"""
+        self.__index = 0
+        return iter(self.gene)
+
+    def __next__(self):
+        """Get the next element of the containing string"""
+        if self.__index <= len(self):
+            return self.gene[self.__index]
+        else:
+            raise StopIteration
+
+    def __getitem__(self, item):
+        """Allow getting string slices of the gene together with __len__"""
+        return self.gene[item]
+
+    @lru_cache(maxsize=1)
+    def __len__(self):
+        """We store this function as a property, and cache the value of it"""
+        return len(self.gene)
+
+    @property
+    @lru_cache(maxsize=1)
+    def fitness(self) -> Union[int, float]:
+        """The fitness of the particular gene as a property, cached"""
+        return self._trainer.check_fitness(self.run(self.gene,
+                                                    self._trainer.gen_in()))
 
     @staticmethod
     def run(code: str,
@@ -116,11 +147,16 @@ class Gene(object):
         :param sigma: Standard deviation of program length
         :return:  String containing a valid Brainfuck program
         """
-        valid = False
-        cmds = [[1, '>', 0], [1, '<', 0],
-                [1, '+', 0], [1, '-', 0],
-                [1, '.', 0], [1, ',', 0],
-                [1, '[', 1], [0, ']', -1]]
+        commands = [
+            [1, '>', 0],
+            [1, '<', 0],
+            [1, '+', 0],
+            [1, '-', 0],
+            [1, '.', 0],
+            [1, ',', 0],
+            [1, '[', 1],
+            [0, ']', -1],
+        ]
 
         length = int(random.gauss(mu, sigma))
         code = ''
@@ -128,10 +164,10 @@ class Gene(object):
 
         # make a program to length
         while length > 0:
-            c = utils.weighted_choice(cmds)
-            code += c[0]
-            depth += c[1]
-            cmds[7][0] = depth  # make it more likely to close the bracket
+            c = utils.weighted_choice(commands, key=lambda x: x[0])
+            code += c[1]
+            depth += c[2]
+            commands[7][0] = depth  # make it more likely to close the bracket
             length -= 1
 
         # pad out with brackets
@@ -170,17 +206,17 @@ class Gene(object):
         return s
 
     def mutate(self,
-               code1: str,
-               code2: str) -> Tuple[str, str]:
+               g1: Gene,
+               g2: Gene) -> Tuple[str, str]:
         """
         Mutate a given Brainfuck program in various ways
-        :param code1: the subject program to mutate
-        :param code2: the donor program to mutate
+        :param g1: the subject program to mutate
+        :param g2: the donor program to mutate
         :return: Two mutated Brainfuck programs
         """
         MUTATION_ODDS = 0.03
 
-        def _depth(code: str) -> int:
+        def __depth(code: str) -> int:
             """
             Depth (in number of `[` minus number of `]`) of code
             :param code: String, code fragment to determine depth of
@@ -194,7 +230,7 @@ class Gene(object):
                     d -= 1
             return d
 
-        def deletion(code: str) -> str:
+        def deletion(code: Gene) -> str:
             """
             Delete a section of the program
 
@@ -222,7 +258,7 @@ class Gene(object):
 
             return new_code
 
-        def duplication(code: str) -> str:
+        def duplication(code: Gene) -> str:
             """
             Duplicate a section of the program
 
@@ -253,7 +289,7 @@ class Gene(object):
 
             return new_code
 
-        def inversion(code: str) -> str:
+        def inversion(code: Gene) -> str:
             """
             Invert a section of the program
             For example, abcdef -> aDCBef
@@ -263,7 +299,7 @@ class Gene(object):
             """
             raise NotImplementedError
 
-        def complementation(code: str) -> str:
+        def complementation(code: Gene) -> str:
             """
             Swap out code for it's complement
             Ex. +/-, [/], >/<, ,/.
@@ -273,7 +309,7 @@ class Gene(object):
             """
             raise NotImplementedError
 
-        def insertion(code1: str, code2: str) -> Tuple[str, str]:
+        def insertion(code1: Gene, code2: Gene) -> Tuple[str, str]:
             """
             Delete a section of program one and insert it into program two
             :param code1: "Donor" segment of code
@@ -282,7 +318,7 @@ class Gene(object):
             """
             raise NotImplementedError
 
-        def translocation(code1: str, code2: str) -> Tuple[str, str]:
+        def translocation(code1: Gene, code2: Gene) -> Tuple[str, str]:
             """
             Swap segments of code1 with code2
 
@@ -298,8 +334,8 @@ class Gene(object):
                 cut2 = random.randint(0, len(code2))
 
                 tmp = 0  # try finding nearby brackets to speed up code
-                d_needed = _depth(code2[cut2:])
-                while _depth(code1[cut1:]) != d_needed and tmp < 10:
+                d_needed = __depth(code2[cut2:])
+                while __depth(code1[cut1:]) != d_needed and tmp < 10:
                     cut1 += 1
                     tmp += 1
 
@@ -319,8 +355,8 @@ class Gene(object):
 
         # TODO: Call the above mutations in varying amounts
         if random.getrandbits(1):
-            output = translocation(code1, code2)
+            output = translocation(g1, g2)
         else:
-            output = (deletion(code1), duplication(code2))
+            output = (deletion(g1), duplication(g2))
 
         return output
