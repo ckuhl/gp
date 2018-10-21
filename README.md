@@ -26,7 +26,7 @@ profiler = pprofile.Profile()
 with profiler:
     ...
 ```
-and then start it from the command line as such: 
+and then start it from the command line as such:
 `pprofile --threads 0 main.py`
 
 ## To do

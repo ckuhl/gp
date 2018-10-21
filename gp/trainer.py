@@ -1,4 +1,8 @@
+import logging
 from typing import Union
+
+
+log = logging.getLogger(__name__)
 
 
 class Trainer:
@@ -9,22 +13,22 @@ class Trainer:
 
     def __init__(self):
         """Configure the trainer"""
-        ...
+        pass
 
     def gen_in(self) -> str:
         """Generate input for a program"""
-        ...
+        raise NotImplementedError
 
     def gen_out(self) -> str:
         """Generate the expected output given the above input"""
-        ...
+        raise NotImplementedError
 
     def check_fitness(self, output: str) -> Union[int, float]:
         """
         Given an output, generate a number between [0, +inf) that indicates the
         fitness of a particular gene.
         """
-        ...
+        raise NotImplementedError
 
 
 class Hello(Trainer):
@@ -43,7 +47,7 @@ class Hello(Trainer):
         return ''
 
     def gen_out(self):
-        return "Hello world!"
+        return 'Hello world!'
 
     def check_fitness(self, output):
         """
@@ -59,4 +63,6 @@ class Hello(Trainer):
                 fitness += abs(ord(i) - ord(output[n])) ** 2
             except IndexError:
                 return float('inf')
+        log.info('Expected: %s\nGot: %s\nFitness: %s', expected, output,
+                 fitness)
         return fitness

@@ -15,7 +15,7 @@ def visualize_control_chars(s: str) -> str:
         '\x02': '␂',  # Start of Text
         '\x03': '␃',  # End of Text
         '\x04': '␄',  # End of Transmission
-        '\x05': '␅',  # Equiry
+        '\x05': '␅',  # Enquiry
         '\x06': '␆',  # Acknowledge
         '\x07': '␇',  # Bell
         '\x08': '␈',  # Backspace

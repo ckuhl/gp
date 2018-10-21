@@ -6,17 +6,27 @@ from typing import Dict
 log = logging.getLogger(__name__)
 
 
-class BrainfuckMachine:
-    """Virtual machine that emulates a simple Brainfuck interpreter"""
-    # set the program pointer and data pointer
-    dptr, pptr = 0, 0
+class MachineState(object):
+    # set data pointer
+    dptr = 0
 
-    # TODO: Consider replacing the data list with a dict
-    # data tape, and call stack
-    data, stack = [0], []
+    # set program pointer
+    pptr = 0
+
+    # initial data tape
+    # TODO: Consider replacing the data list with a dict?
+    data = [0]
+
+
+class BrainfuckEmulator:
+    """Virtual machine that emulates a simple Brainfuck interpreter"""
+    # store a list of states we've seen before
+    # (if we see the exact same one twice, that means we're in an infinite loop)
+    states = set()
+    in_infinite_loop = False
 
     # step of iteration
-    step = 0
+    cycles = 0
 
     # output string
     out = ''
@@ -24,21 +34,22 @@ class BrainfuckMachine:
     def __init__(self, code: str,
                  input_string: str,
                  max_iter: int) -> None:
-        self.input_stack = input_string
+        self.state = MachineState()
+        self.code: str = code
+        self.code_len: int = len(code)
+        self.jmp_map: Dict[int, int] = self._loop_map(code)
 
-        self.code = code
-        self.code_len = len(code)
-        self.jmp_map = self._loop_map(code)
+        self.input_stack: str = input_string
 
-        self.max_iter = max_iter
+        self.max_iter: int = max_iter
 
     @staticmethod
     def _loop_map(code: str) -> Dict[int, int]:
         """
         Build a map of matching brackets, forwards and backwards
 
-        :param code: String containing a valid Brainfuck program
-        :return: Dictionary containing location of every bracket's match
+        :param code: A valid Brainfuck program
+        :return: Location of every bracket's match
         """
         stack, bmap = [], {}
         for n, c in enumerate(code):
@@ -49,54 +60,60 @@ class BrainfuckMachine:
                 bmap[bmap[n]] = n  # forward ref i.e pos('['): pos(']')
         return bmap
 
-    def __move_pointer_right(self):
-        self.dptr += 1
+    def __bf_command_increment_dptr(self) -> None:
+        self.state.dptr += 1
         try:
-            self.data[self.dptr]
+            __test = self.state.data[self.state.dptr]
         except IndexError:  # accessing beyond tape end; extend tape
-            self.data.append(0)
-        self.pptr += 1
+            self.state.data.append(0)
+        self.state.pptr += 1
 
-    def __bf_command_move_pointer_left(self) -> None:
-        try:
-            # test if we are at the start of the list
-            self.data[self.dptr - 1]
-            self.dptr -= 1
-        except IndexError:
-            # if we are, extend the list instead of moving the pointer
-            self.data.insert(0, 0)
-        self.pptr += 1
+    def __bf_command_decrement_dptr(self) -> None:
+        if self.state.dptr:
+            self.state.dptr -= 1
+        else:
+            self.state.data.insert(0, 0)
+        self.state.pptr += 1
 
     def __bf_command_increment_cell(self) -> None:
-        self.data[self.dptr] += 1
-        self.pptr += 1
+        self.state.data[self.state.dptr] += 1
+        self.state.pptr += 1
 
     def __bf_command_decrement_cell(self) -> None:
-        self.data[self.dptr] -= 1
-        self.pptr += 1
+        self.state.data[self.state.dptr] -= 1
+        self.state.pptr += 1
 
     def __bf_command_produce_output(self) -> None:
-        if self.data[self.dptr] >= 0:
-            self.out += chr(self.data[self.dptr])
-        self.pptr += 1
+        if self.state.data[self.state.dptr] >= 0:
+            self.out += chr(self.state.data[self.state.dptr])
+        self.state.pptr += 1
 
     def __bf_command_take_input(self) -> None:
         if self.input_stack:
-            self.data[self.dptr] = ord(self.input_stack[0])
-            self.input_stack = self.input_stack[1:]
-        self.pptr += 1
+            self.state.data[self.state.dptr] = ord(self.input_stack[0])
+            self.input_stack: str = self.input_stack[1:]
+        self.state.pptr += 1
 
     def __bf_command_begin_loop(self) -> None:
-        if self.data[self.dptr]:
-            self.pptr += 1
+        # Check that we've been here before
+        current_state = hash(self.state)
+
+        if current_state in self.states:
+            self.in_infinite_loop = True
         else:
-            self.pptr = self.jmp_map[self.pptr]
+            self.states.add(current_state)
+
+        # actual bracket logic
+        if self.state.data[self.state.dptr]:
+            self.state.pptr += 1
+        else:
+            self.state.pptr = self.jmp_map[self.state.pptr]
 
     def __bf_command_end_loop(self) -> None:
-        if self.data[self.dptr]:
-            self.pptr = self.jmp_map[self.pptr]
+        if self.state.data[self.state.dptr]:
+            self.state.pptr = self.jmp_map[self.state.pptr]
         else:
-            self.pptr += 1
+            self.state.pptr += 1
 
     @lru_cache(maxsize=1)
     def run(self) -> str:
@@ -106,24 +123,27 @@ class BrainfuckMachine:
         _should_ be faster
         :return: the program output
         """
-        while self.pptr < self.code_len:
+        while self.state.pptr < self.code_len:
             {
-                '>': self.__move_pointer_right,
-                '<': self.__bf_command_move_pointer_left,
+                '>': self.__bf_command_increment_dptr,
+                '<': self.__bf_command_decrement_dptr,
                 '+': self.__bf_command_increment_cell,
                 '-': self.__bf_command_decrement_cell,
                 ',': self.__bf_command_take_input,
                 '.': self.__bf_command_produce_output,
                 '[': self.__bf_command_begin_loop,
                 ']': self.__bf_command_end_loop,
-            }[self.code[self.pptr]]()
+            }[self.code[self.state.pptr]]()
+            self.cycles += 1
 
-            self.step += 1
-
-            if self.step > self.max_iter:
-                log.info('Max iteration of %s cycles, returning early',
-                         self.max_iter)
+            if self.in_infinite_loop:
+                # We return from here _a lot_, let's not log it
                 return self.out
 
-        log.info('Program completed in %s cycles', self.max_iter)
+            if self.cycles > self.max_iter:
+                log.debug('Max iteration of %s cycles, returning early',
+                          self.max_iter)
+                return self.out
+
+        log.debug('Program completed in %s cycles', self.cycles)
         return self.out
