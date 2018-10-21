@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import logging
 import random
-from functools import lru_cache
 from typing import Optional, Tuple, Union
 
 from gp.brainfuck_machine import BrainfuckEmulator
 from gp.trainer import Trainer
-from . import utils
-
-
-log = logging.getLogger(__name__)
 
 
 class Gene(object):
     """Representation of a `Gene` and all the relevant data surrounding it"""
+    log = logging.getLogger(__name__)
+    __output = None
+    __fitness = None
 
     def __init__(self,
                  trainer: Trainer,
@@ -40,32 +38,32 @@ class Gene(object):
         return self.gene[item]
 
     def __repr__(self):
-        return '<Gene: Fitness={}, Code={}...>'.format(self.fitness,
+        return '<Gene: Fitness={}, Code={}...>'.format(self.fitness(),
                                                        self.gene[:16])
 
-    @lru_cache(maxsize=1)
     def __len__(self):
         """We store this function as a property, and cache the value of it"""
         return len(self.gene)
 
-    @property
-    @lru_cache(maxsize=1)
     def fitness(self) -> Union[int, float]:
         """The fitness of the particular gene as a property, cached"""
-        return self.__trainer.check_fitness(self.output)
+        if self.__fitness is None:
+            self.__fitness = self.__trainer.check_fitness(self.output())
+        return self.__fitness
 
-    @property
-    @lru_cache(maxsize=10)
-    def output(self, max_iter: int = 100_000) -> str:
+    async def output(self, max_iter: int = 100_000) -> str:
         """
         The output of running the gene with a particular input
 
         :param max_iter: Maximum iterations the can program
         :return: What the program wrote to output
         """
-        return BrainfuckEmulator(self.gene,
-                                 self.__trainer.gen_in(),
-                                 max_iter).run()
+        # cache results of emulator
+        if self.__output is None:
+            self.__output = BrainfuckEmulator(self.gene,
+                                              self.__trainer.gen_in(),
+                                              max_iter).run()
+        return self.__output
 
     @staticmethod
     def gen(mu: Optional[float] = None,
@@ -96,7 +94,7 @@ class Gene(object):
 
         # make a program to length
         while length > 0:
-            c = utils.weighted_choice(commands, key=lambda x: x[0])
+            c = random.choice(commands)
 
             # recursively create balanced brackets
             if c[1] == '[':
@@ -124,7 +122,7 @@ class Gene(object):
         )
         code = ''
         while length > 0:
-            c = utils.weighted_choice(commands, key=lambda x: x[0])
+            c = random.choice(commands)
             if c[1] == '[':
                 inner, length = Gene.__inner_gen(length - 2)
                 code += '[{}]'.format(inner)

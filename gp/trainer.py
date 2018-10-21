@@ -2,14 +2,12 @@ import logging
 from typing import Union
 
 
-log = logging.getLogger(__name__)
-
-
-class Trainer:
+class Trainer(object):
     """
     A genetic program trainer provides a method by which to generate inputs,
       expected outputs, and a fitness calculator by which to train functions.
     """
+    log = logging.getLogger(__name__)
 
     def __init__(self):
         """Configure the trainer"""
@@ -60,9 +58,7 @@ class Hello(Trainer):
         fitness = 0
         for n, i in enumerate(expected):
             try:
-                fitness += abs(ord(i) - ord(output[n])) ** 2
+                fitness += abs(ord(i) - ord(output[n]))
             except IndexError:
-                return float('inf')
-        log.info('Expected: %s\nGot: %s\nFitness: %s', expected, output,
-                 fitness)
+                fitness += abs(ord(i)) ** 2
         return fitness

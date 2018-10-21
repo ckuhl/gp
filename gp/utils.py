@@ -63,16 +63,23 @@ X = TypeVar('X')
 
 
 def weighted_choice(object_list: Sequence[X],
-                    key: Callable[[X], Union[int, float]]) -> X:
+                    key: Callable[[X], Union[int, float]],
+                    inverse: bool = False) -> X:
     """
     Makes a weighted selection from a list of weighted objects
+    :param inverse: inversely proportional to size
     :param object_list: list of any type of object that can be weighted
     :param key: function to extract keyvalue from a list
     :return: The selected list element
     """
-    total = sum([key(x) for x in object_list])
-    interval_tuples = [tuple((key(x) / total, n)) for n, x in
-                       enumerate(object_list)]
+    ol = [key(x) for x in object_list]
+
+    if inverse:
+        total = sum([x for x in ol])
+        ol = [total / x for n, x in enumerate(ol)]
+
+    total = sum([x for x in ol])
+    interval_tuples = [tuple((x / total, n)) for n, x in enumerate(ol)]
 
     choice = random.random()
     choice -= interval_tuples[0][0]

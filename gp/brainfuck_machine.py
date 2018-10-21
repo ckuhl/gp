@@ -1,24 +1,22 @@
+import collections
 import logging
-from functools import lru_cache
 from typing import Dict
-
-
-log = logging.getLogger(__name__)
 
 
 class MachineState(object):
     # set data pointer
-    dptr = 0
+    dptr = 50
 
     # set program pointer
     pptr = 0
 
     # initial data tape
     # TODO: Consider replacing the data list with a dict?
-    data = [0]
+    data = [0] * 100
 
 
-class BrainfuckEmulator:
+class BrainfuckEmulator(object):
+    log = logging.getLogger(__name__)
     """Virtual machine that emulates a simple Brainfuck interpreter"""
     # store a list of states we've seen before
     # (if we see the exact same one twice, that means we're in an infinite loop)
@@ -43,21 +41,26 @@ class BrainfuckEmulator:
 
         self.max_iter: int = max_iter
 
-    @staticmethod
-    def _loop_map(code: str) -> Dict[int, int]:
+    def _loop_map(self, code: str) -> Dict[int, int]:
         """
         Build a map of matching brackets, forwards and backwards
 
         :param code: A valid Brainfuck program
         :return: Location of every bracket's match
         """
-        stack, bmap = [], {}
+        stack, bmap = collections.deque(), {}
         for n, c in enumerate(code):
             if c == '[':
                 stack.append(n)
             elif c == ']':
-                bmap[n] = stack.pop()  # back ref i.e. pos(']'): pos('[')
-                bmap[bmap[n]] = n  # forward ref i.e pos('['): pos(']')
+                try:
+                    bmap[n] = stack.pop()  # back ref i.e. pos(']'): pos('[')
+                    bmap[bmap[n]] = n  # forward ref i.e pos('['): pos(']')
+                except IndexError as e:
+                    self.log.error(bmap)
+                    self.log.error(code[:n + 1])
+                    raise e
+
         return bmap
 
     def __bf_command_increment_dptr(self) -> None:
@@ -115,7 +118,6 @@ class BrainfuckEmulator:
         else:
             self.state.pptr += 1
 
-    @lru_cache(maxsize=1)
     def run(self) -> str:
         """
         This functions as a switch statement...
@@ -141,9 +143,9 @@ class BrainfuckEmulator:
                 return self.out
 
             if self.cycles > self.max_iter:
-                log.debug('Max iteration of %s cycles, returning early',
-                          self.max_iter)
+                self.log.debug('Max iteration of %s cycles, returning early',
+                               self.max_iter)
                 return self.out
 
-        log.debug('Program completed in %s cycles', self.cycles)
+        self.log.debug('Program completed in %s cycles', self.cycles)
         return self.out

@@ -27,7 +27,8 @@ class Evolve(object):
         start = datetime.datetime.now()
 
         current_generation = self.generation_zero()
-        while current_generation[0].fitness != 0:
+        while current_generation[0].fitness() != 0:
+            self.log.debug('=' * 79)
             current_generation = self.offspring(current_generation)
 
             generation_counter += 1
@@ -47,7 +48,7 @@ class Evolve(object):
         gen_round = 0
         while len(program_generation) < self.per_gen:
             g = gene.Gene(self.trainer, gene.Gene.gen(350, 75))
-            fitness = g.fitness
+            fitness = g.fitness()
 
             gen_round += 1
 
@@ -68,49 +69,47 @@ class Evolve(object):
                         'Fit:\t{}\n'.format(
                             len(program_generation) + 1,
                             gen_round + 1,
-                            fitness),
-                        color='green'))
-                self.log.debug(utils.visualize_control_chars(g[:79]))
+                            fitness), color='green'))
+                self.log.info(utils.visualize_control_chars(g[:79]))
 
                 program_generation.append(g)
 
-        program_generation.sort(key=lambda x: x.fitness)
+        program_generation.sort(key=lambda x: x.fitness())
         return program_generation
 
     def offspring(self,
-                  generation: List[Gene],
+                  prev_gen: List[Gene],
                   survivors: int = 2) -> List[Gene]:
         """
         Generate offspring for a given generation / health
 
-        :param generation: Program generation tuples (score, gene)
+        :param prev_gen: Program generation tuples (score, gene)
         :param survivors: Number of Genes to take into the next round
         :return: Next generation
         """
-        generation.sort(key=lambda x: x.fitness)
-        next_gen = generation[:survivors]  # take best from last generation
+        prev_gen.sort(key=lambda x: x.fitness())
+        worst = prev_gen[-1]
+
+        next_gen = [x for x in prev_gen[:survivors]]
 
         while len(next_gen) < self.per_gen:
-            w1 = utils.weighted_choice(generation, lambda x: x.fitness)
-            w2 = utils.weighted_choice(generation, lambda x: x.fitness)
+            w1 = utils.weighted_choice(prev_gen,
+                                       lambda x: x.fitness(),
+                                       inverse=True)
+            w2 = Gene(self.trainer, Gene.gen(350, 75))
 
             n1, n2 = self.mutate(w1, w2)
-            if n1.fitness < float('inf'):
+
+            if n1.fitness() < worst.fitness():
                 next_gen.append(n1)
-            if n2.fitness < float('inf'):
+            if n2.fitness() < worst.fitness():
                 next_gen.append(n2)
 
-        next_gen.sort(key=lambda x: x.fitness)
-        print([x.fitness for x in next_gen])
-
-        # Logging
-        self.log.debug('Best fitness: %s\t', next_gen[0].fitness)
+        self.log.debug('Best fitness: %s',
+                       next_gen[0].fitness(),
+                       prev_gen[0].fitness())
         self.log.debug(utils.visualize_control_chars(
-            next_gen[0].output[:len('Hello world!')]))
-
-        if next_gen[0].gene != generation[0].gene:
-            previous_solution = generation[0].gene
-            self.log.debug(previous_solution)
+            next_gen[0].output()[:len('Hello world!')]))
 
         return next_gen
 
@@ -159,7 +158,7 @@ class Evolve(object):
 
                 g = Gene(self.trainer, deleted)
 
-                if g.fitness != float('inf'):
+                if g.fitness() != float('inf'):
                     break
 
             self.log.warning('Deletion took %s attempts', c)
@@ -189,7 +188,7 @@ class Evolve(object):
 
                 new_code = Gene(self.trainer, duplicated)
 
-                if new_code.fitness != float('inf'):
+                if new_code.fitness() != float('inf'):
                     break
             self.log.warning('Deletion took %s attempts', c)
 
@@ -213,11 +212,14 @@ class Evolve(object):
 
             # This should probably avoid unbalanced brackets. I think.
             while size > 0 and stop < len(s) and start >= 0:
-                if s[stop] in {'[', ']'}:
+                if s[stop] in {']', '['}:
                     if s[start] in {'[', ']'}:
-                        start -= 1
-                        stop += 1
-                        size -= 2
+                        if s[start] != s[stop]:
+                            break
+                        else:
+                            start -= 1
+                            stop += 1
+                            size -= 2
                     else:
                         start -= 1
                         size -= 1
@@ -226,7 +228,8 @@ class Evolve(object):
                     size -= 1
 
             segment = s[start:stop][::-1]
-            return Gene(self.trainer, s[:start] + segment[::-1] + s[stop:])
+            code = s[:start] + segment[::-1] + s[stop:]
+            return Gene(self.trainer, Gene.repair(code))
 
         def complementation(code: Gene) -> Gene:
             """
@@ -272,8 +275,8 @@ class Evolve(object):
                 g2_out = Gene(self.trainer,
                               Gene.repair(code2[cut2:] + code1[:cut1]))
 
-                if g1_out.fitness != float('inf') and \
-                        g2_out.fitness != float('inf'):
+                if g1_out.fitness() != float('inf') and \
+                        g2_out.fitness() != float('inf'):
                     break
 
             self.log.warning('Deletion took %s attempts', c)
